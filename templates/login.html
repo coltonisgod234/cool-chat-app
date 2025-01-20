@@ -1,0 +1,55 @@
+<script>
+    const server_ip = "https://coltons.sytes.net"; // Replace with your actual server IP
+
+    async function handleLogin(event) {
+        event.preventDefault(); // Prevent the form from reloading the page
+
+        // Get input values
+        const username = document.getElementById("username_box").value;
+        const password = document.getElementById("password_box").value;
+
+        try {
+            // Send login request
+            const response = await fetch(`${server_ip}/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                }),
+            });
+
+            if (!response.ok) {
+                alert("Login failed. Please check your credentials.");
+                return;
+            }
+
+            // Parse JSON response
+            const token = response.text; // Assuming the server responds with { "token": "your_token_here" }
+
+            // Store the token in a cookie
+            document.cookie = `token=${token}; path=/`;
+
+            location.href = `${server_ip}/frontend_view_channel?g=1&c=general`
+        } catch (error) {
+            console.error("Error during login:", error);
+            alert(`Error logging in: ${error}`);
+        }
+    }
+</script>
+
+<form onsubmit="handleLogin(event)">
+    <label for="username_box">Username:</label>
+    <input type="text" id="username_box" name="username_box" required>
+
+    <br>
+    
+    <label for="password_box">Password:</label>
+    <input type="password" id="password_box" name="password_box" required>
+
+    <br>
+    
+    <button type="submit">Log in</button>
+</form>

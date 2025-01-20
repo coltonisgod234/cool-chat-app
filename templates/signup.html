@@ -1,0 +1,51 @@
+<script>
+    const server_ip = "https://coltons.sytes.net"; // Replace with your actual server IP
+
+    async function handleCreateUser(event) {
+        event.preventDefault(); // Prevent the form from reloading the page
+
+        // Get input values
+        const username = document.getElementById("username_box").value;
+        const password = document.getElementById("password_box").value;
+
+        try {
+            // Send login request
+            const response = await fetch(`${server_ip}/new_user`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                }),
+            });
+
+            if (!response.ok) {
+                alert(`Creation failed. Status ${response.status} ${response.statusText}`);
+                return;
+            }
+
+            location.href = `${server_ip}/login_fe`
+        } catch (error) {
+            console.error("Error during creation:", error);
+            alert(`Error creating account: ${error}`);
+        }
+    
+    location.href = `${server_ip}/login_fe`
+    }
+</script>
+
+<form onsubmit="handleCreateUser(event)">
+    <label for="username_box">Username:</label>
+    <input type="text" id="username_box" name="username_box" required>
+
+    <br>
+    
+    <label for="password_box">Password:</label>
+    <input type="password" id="password_box" name="password_box" required>
+
+    <br>
+    
+    <button type="submit">Log in</button>
+</form>
