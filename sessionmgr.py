@@ -37,14 +37,28 @@ def get_tok_by_usr(username:str):
                 return line[1]
 
 def new_user(username,password):
-    if get_line_by_usr(username) is not None:
-        return "That user already exists.", 409
+    path = f"users/{username}"
+    if os.exists(path):
+        return "User already exists", 422
     
     with open("users.csv", mode="a") as f:
         writer = csv.writer(f)
         writer.writerow([username,password])
     
+    os.mkdir(path)
+    
     return "Success", 200
+
+def update_pfp_backend(token, file):
+    if not file:
+        return "No file specified"
+
+    username = get_usr_by_tok(token)
+    if username is None or not check_if_logged_in(username):
+        return "Unauthorized", 401
+
+    path = f"users/{username}.pfp.png"
+    file.save(path)
 
 def get_usr_by_tok(token:str):
     '''

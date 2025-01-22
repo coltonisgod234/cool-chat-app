@@ -1,0 +1,31 @@
+<h1>{{ header }}</h1>
+<p>{{ message }}</p>
+
+<br>
+<a href='{{ server_ip }}/login_fe'>Log in</a>
+
+<br>
+<a href='{{ server_ip }}/logout_fe'>Log out</a>
+
+<br>
+<a href='{{ server_ip }}/signup'>Sign Up</a>
+
+<br>
+
+<p>Logged in as {{ currentuser }}</p>
+
+<script>
+    function gotochannel(event) {
+        const guild = document.getElementById("g").value;
+        const channel = document.getElementById("c").value;
+    
+        location.href = `https://coltons.sytes.net/frontend_view_channel?g=${guild}&c=${channel}`;
+    }
+</script>
+
+Go to channel
+<form onsubmit="gotochannel(event)">
+    <input type="number" id="g" name="g" required>
+    <input type="text" id="c" name="c" required>
+    <button type="submit">Go</button>
+</form>

@@ -1,0 +1,14 @@
+<script>
+    function gotochannel(event) {
+        const guild = document.getElementById("g").value;
+        const channel = document.getElementById("c").value;
+    
+        location.href = `https://coltons.sytes.net/frontend_view_channel?g=${guild}&c=${channel}`;
+    }
+</script>
+
+<form onsubmit="gotochannel(event)">
+    <input type="number" id="g" name="g" required>
+    <input type="text" id="c" name="c" required>
+    <button type="submit">Go</button>
+</form>

@@ -46,7 +46,8 @@ def get_ch_perms(guild, channel, metatype, username:str):
         "guild": guild,
         "channel": channel,
         "metatype": metatype,
-        "send_message": perms[1]
+        "send_message": perms[1],
+        "owner": perms[2]
     }
 
 def new_guild(ID, token):
@@ -54,7 +55,29 @@ def new_guild(ID, token):
     if os.exists(path):
         return "A guild with that ID already exists", 422
     
-    if not sessionmgr.check_if_logged_in(sessionmgr.get_usr_by_tok(token)):
+    user = sessionmgr.get_usr_by_tok(token)
+    if not sessionmgr.check_if_logged_in(user):
         return "Invalid token", 401
 
     os.mkdir(path)
+
+    # Register the user as owner
+    with open(f"{path}/__GUILD.meta.perms", mode="a") as f:
+        writer = csv.writer(f)
+        writer.writerow([user,"yes","yes"])
+
+def new_channel(guild, channel, token):
+    path = f"data/{guild}/{channel}"
+    if os.exists(path):
+        return "That channel already exists", 422
+    
+    user = sessionmgr.get_usr_by_tok(token)
+    if not sessionmgr.check_if_logged_in(user):
+        return "Invalid token", 401
+
+    open(f"{path}.csv", mode="x")  # Create file
+    with open(f"{path}.meta.members.perms", mode="a") as f:
+        writer = csv.writer(f)
+        writer.writerow([user,"yes","yes"])
+    
+    return f"Created channel {guild}/{channel}.", 200

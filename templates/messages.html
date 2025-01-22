@@ -23,11 +23,24 @@
 </head>
 
 <script>
+window.scrollTo(0, document.body.scrollHeight);
+
+function setup() {
+    const evtSource = new EventSource("https://coltons.sytes.net/events");
+
+    evtSource.onmessage = (event) => {
+        console.log("Got event");
+        if (event.data == "refresh") {
+            location.reload();
+        }
+    }
+}
+
+
 function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop().split(';').shift();
-
 }
 async function handle() {
     event.preventDefault(); // Prevent the default form submission behavior
@@ -36,8 +49,7 @@ async function handle() {
     console.log(message)
 
     try {
-        // Make a POST request to your /message/ endpoint
-        const response = await fetch("https://coltons.sytes.net/message", {
+        const response = await fetch("https://coltons.sytes.net/api/message", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -49,37 +61,46 @@ async function handle() {
                 content: message
             }),
         });
-
-        // Parse the response from the server
-        if (!response.ok) {
-            console.log(`Not OK ${response.status}`)
-            alert(`not OK ${response.status}`)
-        }
     } catch (error) {
         console.log(`Err: ${error}`)
-        alert("Error.")
+        alert(`Error: ${error}\status: ${response.status} (${response.statusText})`)
     }
 };
 </script>
 
+<p>Logged in as {{ currentuser }}</p>
 <a href="https://coltons.sytes.net/login_fe">Log in</a>
 <a href="https://coltons.sytes.net/logout_fe">Log out</a>
+<a href="https://coltons.sytes.net/">Quick Links</a>
 
-<body>
-    <form onsubmit="handle(event)">
-        <label for="message">Message:</label>
-        <input type="text" id="message" name="message" required></input>
-        <br><br>
-        <button type="submit">Send</button>
-    </form>
-
+<body onload="setup()">
     <h1>{{ guild }}/{{ channel }}</h1>
 
     {% for message in messages %}
         <div class="message">
+            <img src="{{ message.pfp }}" width="28px" height="28px" loading="lazy">
             <span class="username">{{ message.username }}</span>
             <span>{{ message.content }}</span>
         </div>
     {% endfor %}
 </body>
-</html>
+
+<script>
+    function gotochannel(event) {
+        const guild = document.getElementById("g").value;
+        const channel = document.getElementById("c").value;
+    
+        location.href = `https://coltons.sytes.net/frontend_view_channel?g=${guild}&c=${channel}`;
+    }
+</script>
+
+<form onsubmit="gotochannel(event)">
+    <input type="number" id="g" name="g" required>
+    <input type="text" id="c" name="c" required>
+    <button type="submit">Go</button>
+</form>
+
+<form onsubmit="handle(event)">
+    <input type="text" id="message" name="message" required></input>
+    <button type="submit">Send</button>
+</form>

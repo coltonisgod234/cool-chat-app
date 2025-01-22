@@ -38,3 +38,16 @@ def search_for_data(ID:str, column=0, filename="sessions.csv"):
                 return line
     
     return None
+
+def search_in_fp(ID:str, f, column=0):
+    '''
+    Returns the line number in sessions.csv where
+    a session with the maching username occurs
+    '''
+    reader = csv.reader(f)
+
+    for i,line in enumerate(reader):
+        if line[column] == ID:
+            return line
+    
+    return None
