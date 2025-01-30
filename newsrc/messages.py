@@ -1,4 +1,32 @@
 import uuid
+import csv
+
+def generate_id():
+    return str(uuid.uuid4())
+
+def edit_permission(obj, key, entry):
+    obj.permissions[key] = entry
+    return obj
+
+def grant_permission(obj, key, permission):
+    o = obj.permissions[key]
+    o.__setattr__(permission, True)
+
+    obj.permissions[key] = o
+    return obj
+
+def revoke_permission(obj, key, permission):
+    o = obj.permissions[key]
+    o.__setattr__(permission, False)
+
+    obj.permissions[key] = o
+    return obj
+
+def check_permission(obj, key, permission):
+    try:
+        return obj.permissions[key].__getattribute__(permission)
+    except KeyError:
+        return None
 
 class User:
     def __init__(self, username:str, password:str):
@@ -7,7 +35,7 @@ class User:
         self.token = None
     
     def force_logon(self):
-        self.token = str(uuid.uuid4())
+        self.token = generate_id()
     
     def force_logoff(self):
         self.token = None
@@ -27,15 +55,67 @@ class User:
     def authenticate(self, password):
         if self.password_auth(password):
             self.force_logon()
+
+class Message:
+    def __init__(self, author:User, content, timestamp, cid=generate_id()):
+        self.author = author
+        self.content = content
+        self.timestamp = timestamp
+        self.cid = cid
     
-    def token_unauth(self, token):
+    def __repr__(self):
+        return f'Message(cid={self.cid}), from={self.author}, data={self.content}, at={self.timestamp})'
+
+class Channel:
+    def __init__(self, name:str, cid=generate_id()):
+        self.cid = cid
+        self.messages = {}
+        self.permissions = {}
+        self.name = name
+    
+    def __repr__(self):
+        return f'Channel(cid={self.cid}, name={self.name}, permissions={self.permissions}, messages={self.messages})'
+
+    def force_add_message(self, msg:Message):
         '''
-        Checks if a token is NOT authenticated
+        Add message without authentication
         '''
-        return not self.token_auth(token)
+        self.messages[msg.cid] = msg
+        return msg
+    
+    def force_delete_message(self, cid):
+        del self.messages[cid]
+    
+    def force_edit_message(self, cid, newMsg:Message):
+        self.messages[cid] = newMsg
+
+    def add_message(self, msg:Message, token):
+        username = msg.author.username
+
+        # Ensure the user is authenticated
+        if not msg.author.token_auth(token):
+            raise PermissionError("Bad token")
+
+        # Ensure they have permission
+        if not check_permission(self, username, "send_messages"):
+            raise PermissionError("You do not have the required permission 'send_messages'")
+        
+        return self.force_add_message(msg)
+    
+class Guild:
+    def __init__(self, cid=generate_id()):
+        self.cid = cid
+        self.channels = {}
+        self.permissions = {}
+    
+    def __repr__(self):
+        return f'Guild(cid={self.cid}, permissions={self.permissions}, channels={self.channels})'
+    
+    def add_channel(self, ch:Channel):
+        self.channels[ch.cid] = ch
 
 class GuildPermissionEntry:
-    def __init__(self, raw:str, user:str, guild:str,
+    def __init__(self, raw:str, user:User, guild:Guild,
                 create_channel:bool, delete_channel:bool, manage_channel:bool,
                 view_perms:bool, manage_perms:bool,
     ):
@@ -48,63 +128,29 @@ class GuildPermissionEntry:
         self.view_perms = view_perms
         self.manage_perms = manage_perms
 
-    def check_perm(self, user:User, token, permission):
-        # Gather needed info
-        username = user.username
-        # Check 2: Make sure the user is authorized
-        if user.token_unauth(token): return PermissionError("You aren't authenticated")
-
-        return getattr(self, permission, None)
-
-class Message:
-    def __init__(self, author, content, timestamp, id:int):
-        self.author = author
-        self.content = content
-        self.timestamp = timestamp
-        self.uid = id
-
-class Channel:
-    def __init__(self, id:int, name:str, guild_id:int):
-        self.gid = guild_id
-        self.uid = id
-        self.messages = []
-        self.name = name
-
-    def add_message(self, msg:Message) -> Message:
-        self.messages.append(msg)
-        return msg
-
-class Guild:
-    def __init__(self, id):
-        self.uid = id
-        self.channels = []
-        self.permissions = {}
-    
-    def add_channel(self, ch:Channel):
-        self.channels.append(ch)
-    
-    def check_perm(self, user, perm):
-        try:                p = self.permissions[user].__getattr__(perm)
-        except KeyError:    return None
-        finally:            return p
-
-    def edit_permission(self, user:User, token, entry:GuildPermissionEntry):
-        if user.token_unauth(token): return PermissionError("You aren't authenticated")
-        if check_perm(user, )
-
-        self.permissions[user] = entry
-
-g = Guild(0)
-c = Channel(0, "general", g.uid)
+class ChannelPermissionEntry:
+    def __init__(
+        self, raw:str, user:User, channel:Channel,
+        send_messages:bool, delete_messages:bool, manage_messages:bool
+    ):
+        self.raw = raw
+        self.user = user
+        self.channel = channel
+        self.send_messages = send_messages
+        self.delete_channel = delete_messages
+        self.manage_messages = manage_messages
 
 u = User("colton", "abc123")
 u.authenticate("abc123")
 
+g = Guild()
+c = Channel("general")
+c = edit_permission(c, u.username, ChannelPermissionEntry("", u, c, False, False, False))
+c = grant_permission(c, u.username, "send_messages")
+
 g.add_channel(c)
 
-print(g.channels)
+msg = Message(u, "Hey!", "")
+g.channels[c.cid].add_message(msg, u.token)
 
-msg = Message(u, "Hey!", "", str(uuid.uuid4()))
-g.channels[0].add_message(msg)
-
-print(g.channels[0].messages[0])
+print(g)
