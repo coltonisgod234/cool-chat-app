@@ -1,7 +1,11 @@
 import uuid
+import inspect
+import time
 
 def generate_id():
-    return str(uuid.uuid4())
+    x = str(uuid.uuid4())
+    log("info", f"Generated a new CID: {x}")
+    return x
 
 def edit_permission(obj, key, entry):
     obj.permissions[key] = entry
@@ -26,3 +30,15 @@ def check_permission(obj, key, permission):
         return obj.permissions[key].__getattribute__(permission)
     except KeyError:
         return None
+
+def log(severity, message):
+    print(f"at {round(time.time())} in {last_running_func(): <20}:      {severity}         {message}")
+
+def last_running_func(n=2):
+    stk = inspect.stack()
+    f = stk[n]  # Use 2 instead of 1 to avoid detecting log() or last_running_func()
+    
+    return f.function
+
+def get_loglevels():
+    return ["info", "warn", "error", "critcal"]

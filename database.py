@@ -7,6 +7,10 @@ class DatabaseFile:
         self.lock = False
         self.cache = {}
     
+    def change_mode(self, mode:str):
+        self.disconnect()
+        self.connect(mode)
+
     def connect(self, mode:str):
         if self.lock == True:
             return None
@@ -32,6 +36,7 @@ class DatabaseFile:
         if cachedata is not None:
             return cachedata
 
+        self.change_mode('r')
         results = []  # Using a list to allow searching for conflcits
         reader = csv.reader(self.activeconncetion)
         for i,row in enumerate(reader):
@@ -47,16 +52,34 @@ class DatabaseFile:
         
         return s
 
+    def build_new_array(self, exceptions, extra_data):
+        self.change_mode('r')
+        new_data = []
+        reader = csv.reader(self.activeconncetion)
+        for i, row in enumerate(reader):
+            if not row in exceptions:
+                new_data.append(row)
+        
+        new_data.append(extra_data)
+        
+        return new_data
+
+    def write_back(self, data:list[list]):
+        self.change_mode("a")
+        self.activeconncetion.truncate(0)
+
+        writer = csv.reader(self.activeconncetion)
+        for i, row in enumerate(data):
+            writer.writerow(row)
+
     def write(self, key:str, value, notexists:bool):
         if notexists and len(self.find_existing_keys(key)) > 0:
             return "Already exists"
         
-        writer = csv.writer(self.activeconncetion)
-        if isinstance(value, list):
-            data = self.list_to_csv(value)
-        elif isinstance(value, str):
-            data = value
+        self.change_mode('w')
+        self.build_new_array(extra_data=value)
 
+        writer = csv.writer(self.activeconncetion)
         writer.writerow([key, data])
 
         self.cache_value(key, data)
@@ -66,22 +89,10 @@ class DatabaseFile:
         if cachedata is not None:
             return cachedata
         
+        self.change_mode('r')
         reader = csv.reader(self.activeconncetion)
         for row in reader():
             if row[keyrow] == key:
                 return row
         
         return None
-    
-    def delete(self, key:str, keyrow=0, occurence=0):
-        '''
-        Delete the first Nth of `key` in the file
-        '''
-        keys = self.find_existing_keys(key, keyrow)
-        k = keys[0]
-
-        new_data = []
-        reader = csv.reader(self.activeconncetion)
-        for i, row in enumerate(reader):
-            if not i == k:
-                new_data.append(row)
