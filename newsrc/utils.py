@@ -2,6 +2,8 @@ import uuid
 import inspect
 import time
 
+SHOW_VERBOSE = True
+
 def generate_id():
     x = str(uuid.uuid4())
     log("info", f"Generated a new CID: {x}")
@@ -32,13 +34,22 @@ def check_permission(obj, key, permission):
         return None
 
 def log(severity, message):
-    print(f"at {round(time.time())} in {last_running_func(): <20}:      {severity}         {message}")
+    if severity in ["verbose", "debug"] and not SHOW_VERBOSE:
+        return
+    print(f"{round(time.time_ns()): <22} {prev_running_func(2): <20}:      {severity:>8}         {message}")
 
-def last_running_func(n=2):
+def prev_running_func(n=1):
     stk = inspect.stack()
-    f = stk[n]  # Use 2 instead of 1 to avoid detecting log() or last_running_func()
+    f = stk[n]
     
     return f.function
 
 def get_loglevels():
-    return ["info", "warn", "error", "critcal"]
+    return ["info", "warn", "error", "critcal", "verbose", "debug"]
+
+def try_index(obj, index):
+    try:
+        data = obj[index]
+        return data
+    except IndexError:
+        return None
