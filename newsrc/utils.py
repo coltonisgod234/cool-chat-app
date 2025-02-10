@@ -34,8 +34,6 @@ def check_permission(obj, key, permission):
         return None
 
 def log(severity, message):
-    if severity in ["verbose", "debug"] and not SHOW_VERBOSE:
-        return
     print(f"{round(time.time_ns()): <22} {prev_running_func(2): <20}:      {severity:>8}         {message}")
 
 def prev_running_func(n=1):

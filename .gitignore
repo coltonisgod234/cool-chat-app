@@ -3,5 +3,6 @@ data/
 users/
 sessions.csv
 users.csv
+__pycache__/
 
 venv/
