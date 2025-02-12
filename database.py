@@ -1,9 +1,12 @@
 import csv
+import utils
+
+INFO, WARN, ERROR, CRITICAL = utils.get_loglevels()
 
 class DatabaseFile:
     def __init__(self, filePath:str):
         self.path = filePath
-        self.activeconncetion = None
+        self.activeconnection = None
         self.lock = False
         self.cache = {}
     
