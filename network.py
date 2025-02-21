@@ -1,4 +1,4 @@
-from flask import Flask, request, abort, make_response, render_template, Response, send_file, send_from_directory
+from flask import Flask, request, abort, make_response, render_template, Response, send_file, send_from_directory, jsonify, current_app
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import csv
@@ -12,6 +12,7 @@ import messaging
 import frontend_lib as front
 
 app = Flask(__name__)
+app.app_context().push()
 limiter = Limiter(
     get_remote_address,
     app=app,
@@ -22,7 +23,7 @@ limiter = Limiter(
 pfps = front.get_all_pfp()
 
 server_ip = "https://coltons.sytes.net"
-new_messages = False
+new_messages = []
 
 @app.route('/')
 def index():
@@ -65,7 +66,7 @@ def login():
         return "Incorrect Credentials", 401
 
 @app.route('/api/refresh_pfp')
-@limiter.limit("20 per minute")
+@limiter.limit("40 per minute")
 def refresh_pfps():
     global pfps
 
@@ -111,9 +112,10 @@ def logout_inpl():
     return responce
 
 @app.route('/api/message', methods=["POST"])
-@limiter.limit("1 per second")
+@limiter.limit("4 per second")
 def send():
     global new_messages
+    global pfps
 
     data = request.json
     token = data.get("token")
@@ -121,11 +123,22 @@ def send():
     channel = data.get("channelID")
     content = data.get("content")
 
-    if not sessions.check_if_logged_in(sessions.get_usr_by_tok(token)):
+
+    username = sessions.get_usr_by_tok(token)
+
+    if not sessions.check_if_logged_in(username):
         return "Invalid token", 401
 
     code = messaging.send_msg(token, content, guild, channel)
-    new_messages = True
+
+    new_messages.append({
+        "guild": guild,
+        "channel": channel,
+        "content": content,
+        "username": username,
+        "pfp": pfps[username]
+    })
+    print("CURRENT NEW MESSAGES", new_messages)
 
     if not code:
         return "OK", 200
@@ -133,6 +146,7 @@ def send():
         return code
 
 @app.route("/api/set_pfp", methods=["POST"])
+@limiter.limit("1 per second")
 def update_pfp():
     token = request.form.get("token")
     pfp = request.files["pfp"]
@@ -144,9 +158,9 @@ def update_pfp():
 def update_pfp_page():
     return render_template("changepfp.html")
 
-@app.route("/users/<path:filename>")
+@app.route("/uploads/<path:filename>")
 def get_pfp_frontend(filename):
-    path = f"users/{filename}"
+    path = f"uploads/{filename}"
     print("PFP PATH", path)
     return send_file(path)
 
@@ -175,7 +189,12 @@ def sign_up():
 @app.route("/frontend_view_channel", methods=["GET"])
 def view_fe():
     try: token = request.cookies["token"]
-    except: return f"You are not logged in\n<a href='{server_ip}/login_fe'>Log In</a>", 401
+    except: return "Bad token cookie", 401
+
+    username = sessions.get_usr_by_tok(token)
+
+    if not sessions.check_if_logged_in(username):
+        return "No session", 401
     
     guild = request.args.get("g")
     channel = request.args.get("c")
@@ -184,17 +203,30 @@ def view_fe():
     return front.show_messages(guild, channel, token, pfps)
     #return front.show_messages(guild=guild, channel=channel, token=token)
 
-@app.route('/events')
-def sse():
-    def event_stream():
-        global new_messages
-        while True:
-            if new_messages:
-                yield f"data: refresh\n\n"
-                time.sleep(0.11)  # Little hack to get around some clients dropping events
-                new_messages = False
+@app.route('/messages/<guild>/<channel>')
+def give_messages(guild, channel):
+    try:
+        token = request.cookies["token"]
+        username = sessions.get_usr_by_tok(token)
+    except:
+        return "Bad cookie", 401
+    
+    if not sessions.check_if_logged_in(username):
+        return "Bad token", 401
+    
+    can_view = messaging.check_perm(token, guild, channel, "view_channel")
+    if can_view is None or can_view == False:
+        return "No permission", 401
+    
+    path = f"data/{guild}/{channel}.csv"
 
-    return Response(event_stream(), content_type='text/event-stream')
+    #if os.path.exists(path):
+    #    return "No such channel", 404
+    
+    with open(path) as f:
+        data = f.read()
+    
+    return data, 200
 
 if __name__ == "__main__":
     app.run(debug=True, ssl_context=('ssl/selfsigned.cer', 'ssl/selfsigned.key'), port=5000, host="0.0.0.0", threaded=True)

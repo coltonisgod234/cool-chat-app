@@ -2,9 +2,16 @@ import helpers
 import csv
 
 def check_if_logged_in(username):
-    if get_tok_by_usr(username) != None:
-        return True
-    else:
+    '''
+    Returns true if the given user has an entry in sessions.csv
+    '''
+    with open('sessions.csv') as f:
+        reader = csv.reader(f)
+
+        for line in reader:
+            if line[0] == username:
+                return True
+    
         return False
 
 def new_session(token:str, username:str):
@@ -37,15 +44,12 @@ def get_tok_by_usr(username:str):
                 return line[1]
 
 def new_user(username,password):
-    path = f"users/{username}"
     if os.exists(path):
         return "User already exists", 422
     
     with open("users.csv", mode="a") as f:
         writer = csv.writer(f)
         writer.writerow([username,password])
-    
-    os.mkdir(path)
     
     return "Success", 200
 
@@ -57,7 +61,7 @@ def update_pfp_backend(token, file):
     if username is None or not check_if_logged_in(username):
         return "Unauthorized", 401
 
-    path = f"users/{username}.pfp.png"
+    path = f"uploads/profiles/{username}.pfp"
     file.save(path)
 
 def get_usr_by_tok(token:str):
