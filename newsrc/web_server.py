@@ -1,6 +1,7 @@
 from flask import Flask, request, make_response
 
 import messages
+import permissions
 import utils
 
 app = Flask(__name__)
@@ -10,79 +11,122 @@ INFO, WARN, ERROR, CRITICAL, VERBOSE, VERBOSEX = utils.get_loglevels()
 users = {
     "colton": messages.User("colton", "abc123")
 }
-sessions = {}
 guilds = {}
 
-def get_session(token):
-    return users[ sessions[ token ] ]
+###############
+### A U T H ###
+###############
 
-@app.route("/api/logon", methods=["POST"])
-def login():
-    data =   request.json
-    uname =  data["username"]
-    passwd = data["password"]
-
-    users[uname].authenticate(passwd)
-    token = users[uname].token
-    if token is None:
-        return "No", 404
-
-    r = make_response(token)
-    r.set_cookie("token", token, secure=True, samesite="None")
-    sessions[token] = uname
-    utils.log(INFO, f"login: usr={uname}, pass={passwd}, tok={token}")
-    return r
-
-@app.route("/api/newuser", methods=["POST"])
-def newuser():
-    data =   request.json
-    uname =  data["username"]
-    passwd = data["password"]
-    users[uname] = messages.User(uname, passwd)
-
-    utils.log(INFO, f"new user: {uname}")
-
-    return "OK"
-
-@app.route("/api/newguild", methods=["POST"])
-def newguild():
+@app.route("/api/auth/login", methods=["POST"])
+def auth():
     data = request.json
-    token = data["token"]
+    username = data.get("username")
+    password = data.get("password")
+
+    user = users.get(username)
+
+    user.authenticate(password)
+    if not user.token:
+        return "error", 400
+    
+    else:
+        return user.token
+
+@app.route("/api/auth/logout", methods=["POST"])
+def deauth():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+
+    if username in ["", None]:
+        return "Nope!", 401
+    
+    users[username].force_logoff()
+    return "OK", 200
+
+#######################
+### USER MANAGEMENT ###
+#######################
+
+@app.route("/api/users/create", methods=["POST"])
+def usrcreate():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+
+    if users.get(username) is not None:
+        return "Already exists", 409
+
+    user = messages.User(username, password)
+    users[username] = user
+    return "OK", 200
+
+@app.route("/api/users/delete", methods=["POST"])
+def usrdel():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+
+    if users.get(username) is not None:
+        return "Doesn't exist", 404
+    
+    del users[username]
+    return "OK", 200
+
+@app.route("/api/users/update_username", methods=["POST"])
+def usrnameupdate():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+
+    if users.get(username) == None:
+        return "Doesn't exist", 404
+
+    data = request.json
+    new_usrname = data.get("username")
+    
+    users[username].username = new_usrname
+    return "OK", 200
+
+@app.route("/api/users/update_password", methods=["POST"])
+def usrpassupdate():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 404
+
+    if users.get(username) is None:
+        return "Doesn't exist", 404
+
+    data = request.json
+    passwd = data.get("password")
+    
+    users[username].password = passwd
+    return "OK", 200
+
+########################
+### GUILD MANAGEMENT ###
+########################
+
+@app.route("/api/guilds/create", methods=["POST"])
+def guildcreate():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
 
     cid = utils.generate_id()
-    guilds[cid] = messages.Guild(cid)
+    guild = messages.Guild(cid)
+    # Give that person owner privledges
+    guild.permissions[username] = permissions.highestGuildPerms(username, guild.cid)
 
-    utils.log(INFO, f"newguild: req={data}, cid={cid}, out={guilds[cid]}")
+    guilds[cid] = guild
+    return cid, 200
 
-    return cid
-
-@app.route("/api/newchannel", methods=["POST"])
-def addchannel():
-    data =  request.json
-    token = data["token"]
-    guild = data["guildid"]
-    name =  data["name"]
-
-    cid = utils.generate_id()
-    guilds[guild].channels[cid] = messages.Channel(name, cid)
-
-    utils.log(INFO, f"newchannel: req={data}.tok={token}.guild={guild}\
-        .name={name}, cid={cid}, out={guilds[guild].channels[cid]}")
-
-    return cid
-
-@app.route("/api/sendmsg", methods=["POST"])
-def addmsg():
-    data = request.json
-    token = data["token"]
-    channel = data["channel"]
-    guild = data["guild"]
-    content = data["content"]
-
-    uname = get_session(token)
-    message = messages.Message(uname, content, "")
-
-    guilds[guild].channels[channel].add_message(message)
-    return message.cid
+@app.route("/api/guilds/channels", methods=["POST"])
+def guild_chlist():
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
 
 app.run()
