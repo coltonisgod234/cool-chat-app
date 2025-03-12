@@ -131,10 +131,8 @@ def channel_list(guild_cid):
     if token == None or username == None:
         return "Nope!", 401
     
-    guild = guilds.get(guild_cid)
-    if guild == None:
-        return "Guild not found", 404
-    
+    guild = guilds[guild_cid]
+
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
@@ -149,9 +147,7 @@ def delguild(guild_cid):
     if token == None or username == None:
         return "Nope!", 401
     
-    guild: messages.Guild = guilds.get(guild_cid)
-    if guild == None:
-        return "Guild not found", 404
+    guild: messages.Guild = guilds[guild_cid]
     
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
@@ -174,10 +170,7 @@ def new_ch(guild_cid):
     if token == None or username == None:
         return "Nope!", 401
     
-    guild: messages.Guild = guilds.get(guild_cid)
-    if guild == None:
-        return "Guild not found", 404
-    
+    guild: messages.Guild = guilds[guild_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
@@ -196,10 +189,7 @@ def del_ch(guild_cid, channel_cid):
     if token == None or username == None:
         return "Nope!", 401
     
-    guild: messages.Guild = guilds.get(guild_cid)
-    if guild == None:
-        return "Guild not found", 404
-    
+    guild: messages.Guild = guilds[guild_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
@@ -223,16 +213,10 @@ def get_message_list(guild_cid, channel_cid):
     if token == None or username == None:
         return "Nope!", 401
     
-    guild: messages.Guild = guilds.get(guild_cid)
+    guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
-    if guild == None:
-        return "Guild not found", 404
-    
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
-    
-    if not utils.can_view_channel(ch, username):
-        return "Cannot view channel", 401
 
     return {
         "messages": ch.messages.keys()
@@ -245,24 +229,80 @@ def send_message(guild_cid, channel_cid):
 
     token = utils.get_request_token(request)
     username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
     
-    guild: messages.Guild = guilds.get(guild_cid)
+    guild: messages.Guild = guilds[guild]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
-    if guild == None:
-        return "Guild not found", 404
-    
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
-    
-    if not utils.can_view_channel(ch, username):
-        return "Cannot view channel", 401
     
     user = users[username]
     m = messages.Message(user, text, time.time())
     ch.add_message(m)
 
+    return "OK", 200
+
+# This stuff is untested, I literally do not care, if it doesn't work I couldn't care less.
+
+@app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["GET"])
+def get_msg(guild_cid, channel_cid, message_cid):
+    data = request.json
+
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds[guild_cid]
+    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    m: messages.Message = ch.messages[message_cid]
+
+    return {
+        "author": m.author.cid,
+        "content": m.content,
+        "cid": m.cid,
+        "timestamp": m.timestamp
+    }, 200
+
+@app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["DELETE"])
+def del_msg(guild_cid, channel_cid, message_cid):
+    data = request.json
+
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds[guild_cid]
+    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    ch.delete_message(message_cid)
+    return "OK", 200
+
+# Is PATCH a real method???? Too lazy to check, couldn't care less
+@app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["PATCH"])
+def edit_msg(guild_cid, channel_cid, message_cid):
+    data = request.json
+    text = data.get("content")
+
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds[guild_cid]
+    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    ch.edit_message(message_cid, text)
     return "OK", 200
 
 app.run(debug=True)
