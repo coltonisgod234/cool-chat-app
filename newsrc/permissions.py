@@ -18,7 +18,8 @@ class GuildPermissionEntry:
 class ChannelPermissionEntry:
     def __init__(
         self, raw:str, user, channel,
-        send_messages:bool, delete_messages:bool, manage_messages:bool
+        send_messages:bool, delete_messages:bool, manage_messages:bool,
+        view_messages:bool = True
     ):
         self.raw = raw
         self.user = user
@@ -26,6 +27,7 @@ class ChannelPermissionEntry:
         self.send_messages = send_messages
         self.delete_channel = delete_messages
         self.manage_messages = manage_messages
+        self.view_messages = view_messages
 
 def highestGuildPerms(username, guild_cid):
     return GuildPermissionEntry(

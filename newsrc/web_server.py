@@ -4,6 +4,8 @@ import messages
 import permissions
 import utils
 
+import time
+
 app = Flask(__name__)
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, VERBOSEX = utils.get_loglevels()
@@ -53,7 +55,7 @@ def usrcreate():
     username = data.get("username")
     password = data.get("password")
 
-    if users.get(username) is not None:
+    if users.get(username) != None:
         return "Already exists", 409
 
     user = messages.User(username, password)
@@ -65,7 +67,7 @@ def usrdel():
     token = utils.get_request_token(request)
     username = utils.get_username_by_token(token, users)
 
-    if users.get(username) is not None:
+    if users.get(username) == None:
         return "Doesn't exist", 404
     
     del users[username]
@@ -122,11 +124,145 @@ def guildcreate():
     guilds[cid] = guild
     return cid, 200
 
-@app.route("/api/guilds/channels", methods=["POST"])
-def guild_chlist():
+@app.route("/api/guilds/<guild_cid>/channels_list", methods=["GET"])
+def channel_list(guild_cid):
     token = utils.get_request_token(request)
     username = utils.get_username_by_token(token, users)
     if token == None or username == None:
         return "Nope!", 401
+    
+    guild = guilds.get(guild_cid)
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    return {
+        "channels": list(guild.channels.keys())
+    }, 200
 
-app.run()
+@app.route("/api/guilds/<guild_cid>", methods=["DELETE"])
+def delguild(guild_cid):
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds.get(guild_cid)
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    for key, channel in guild.channels.items():
+        guild.delete_channel(channel.cid)
+    
+    del guilds[guild_cid]
+    
+    return "OK", 200
+
+################
+### CHANNELS ###
+################
+
+@app.route("/api/guilds/<guild_cid>/new_channel", methods=["POST"])
+def new_ch(guild_cid):
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds.get(guild_cid)
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    data = request.json
+    ch_name = data.get("name")
+    
+    channel = messages.Channel(ch_name)
+    guild.add_channel(channel)
+
+    return channel.cid, 200
+
+@app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["DELETE"])
+def del_ch(guild_cid, channel_cid):
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds.get(guild_cid)
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    ch = guilds[guild_cid].channels[channel_cid]
+    
+    if utils.check_permission(guild, channel_cid, "delete_channel"):
+        return "No permission", 401
+    
+    guild.delete_channel(channel_cid)
+
+    return "OK", 200
+
+############
+# MESSAGES #
+############
+
+@app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["GET"])
+def get_message_list(guild_cid, channel_cid):
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds.get(guild_cid)
+    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    if not utils.can_view_channel(ch, username):
+        return "Cannot view channel", 401
+
+    return {
+        "messages": ch.messages.keys()
+    }, 200
+
+@app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["POST"])
+def send_message(guild_cid, channel_cid):
+    data = request.json
+    text = data.get("content")
+
+    token = utils.get_request_token(request)
+    username = utils.get_username_by_token(token, users)
+    if token == None or username == None:
+        return "Nope!", 401
+    
+    guild: messages.Guild = guilds.get(guild_cid)
+    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    if guild == None:
+        return "Guild not found", 404
+    
+    if not utils.user_in_guild(guild, username):
+        return "Not a member", 403
+    
+    if not utils.can_view_channel(ch, username):
+        return "Cannot view channel", 401
+    
+    user = users[username]
+    m = messages.Message(user, text, time.time())
+    ch.add_message(m)
+
+    return "OK", 200
+
+app.run(debug=True)

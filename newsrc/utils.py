@@ -71,3 +71,31 @@ def try_index(obj, index):
         return data
     except IndexError:
         return None
+
+def user_in_guild(guild, username):
+    if guild.permissions.get(username) == None:
+        return False
+    
+    return True
+
+def can_view_channel(channel, username):
+    perm = channel.permissions.get(username)
+    if perm == None:
+        return None
+    
+    if perm.view_messages == True:
+        return True
+    
+    else:
+        return False
+
+def channel_ok(guild_cid, channel_cid, username, guilds):
+    guild = guilds.get(guild_cid)
+    channel = guild.channels.get(channel_cid)
+    if guild == None or channel == None:
+        return True
+    
+    if not user_in_guild(guild, username) or not can_view_channel(channel_cid, username):
+        return True
+    
+    return guild, channel
