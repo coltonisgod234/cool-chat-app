@@ -1,4 +1,5 @@
-from flask import Flask, request, make_response
+from functools import wraps
+from flask import Flask, jsonify, request, make_response
 
 import messages
 import permissions
@@ -44,6 +45,20 @@ def deauth():
     
     users[username].force_logoff()
     return "OK", 200
+
+def token_required(f):
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        try:
+            token = utils.get_request_token(request)
+            username = utils.get_username_by_token(token, users)
+            if token == None or username == None:
+                return "Nope!", 401
+        except:
+            return make_response(jsonify({"message": "Invalid token!"}), 401)
+         # Return the user information attached to the token
+        return f(username, *args, **kwargs)
+    return decorator
 
 #######################
 ### USER MANAGEMENT ###
@@ -110,12 +125,8 @@ def usrpassupdate():
 ########################
 
 @app.route("/api/guilds/create", methods=["POST"])
-def guildcreate():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-
+@token_required
+def guildcreate(username):
     cid = utils.generate_id()
     guild = messages.Guild(cid)
     # Give that person owner privledges
@@ -124,13 +135,26 @@ def guildcreate():
     guilds[cid] = guild
     return cid, 200
 
+# @app.route("/api/guilds/create", methods=["POST"])
+# def guildcreate():
+#     token = utils.get_request_token(request)
+#     username = utils.get_username_by_token(token, users)
+#     if token == None or username == None:
+#         return "Nope!", 401
+
+#     cid = utils.generate_id()
+#     guild = messages.Guild(cid)
+#     # Give that person owner privledges
+#     guild.permissions[username] = permissions.highestGuildPerms(username, guild.cid)
+
+#     guilds[cid] = guild
+#     return cid, 200
+
+
+
 @app.route("/api/guilds/<guild_cid>/channels_list", methods=["GET"])
-def channel_list(guild_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@token_required
+def channel_list(username, guild_cid):
     guild = guilds[guild_cid]
 
     if not utils.user_in_guild(guild, username):
@@ -164,12 +188,8 @@ def delguild(guild_cid):
 ################
 
 @app.route("/api/guilds/<guild_cid>/new_channel", methods=["POST"])
-def new_ch(guild_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@token_required
+def new_ch(username, guild_cid):
     guild: messages.Guild = guilds[guild_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
@@ -181,6 +201,25 @@ def new_ch(guild_cid):
     guild.add_channel(channel)
 
     return channel.cid, 200
+
+# @app.route("/api/guilds/<guild_cid>/new_channel", methods=["POST"])
+# def new_ch(guild_cid):
+#     token = utils.get_request_token(request)
+#     username = utils.get_username_by_token(token, users)
+#     if token == None or username == None:
+#         return "Nope!", 401
+    
+#     guild: messages.Guild = guilds[guild_cid]
+#     if not utils.user_in_guild(guild, username):
+#         return "Not a member", 403
+    
+#     data = request.json
+#     ch_name = data.get("name")
+    
+#     channel = messages.Channel(ch_name)
+#     guild.add_channel(channel)
+
+#     return channel.cid, 200
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["DELETE"])
 def del_ch(guild_cid, channel_cid):
@@ -207,14 +246,10 @@ def del_ch(guild_cid, channel_cid):
 ############
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["GET"])
-def get_message_list(guild_cid, channel_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@token_required
+def get_message_list(username, guild_cid, channel_cid):
     guild: messages.Guild = guilds[guild_cid]
-    ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
+    ch: messages.Channel = guild.channels[channel_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
 
