@@ -15,16 +15,37 @@ users = {
 }
 guilds = {}
 
+from functools import wraps
+
+def requires_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = utils.get_request_token(request)
+        username = utils.get_username_by_token(token, users)
+
+        if not username or not token:
+            return "Bad token", 401
+
+        return func(username, token, *args, **kwargs)
+    return wrapper
+
+def requires_username_and_password(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        data = request.json
+        username = data.get("username")
+        password = data.get("password")
+
+        return func(username, password)
+    return wrapper
+
 ###############
 ### A U T H ###
 ###############
 
 @app.route("/api/auth/login", methods=["POST"])
-def auth():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-
+@requires_username_and_password
+def auth(username, password):
     user = users.get(username)
 
     user.authenticate(password)
@@ -35,13 +56,8 @@ def auth():
         return user.token
 
 @app.route("/api/auth/logout", methods=["POST"])
-def deauth():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-
-    if username in ["", None]:
-        return "Nope!", 401
-    
+@requires_auth
+def deauth(username, token):
     users[username].force_logoff()
     return "OK", 200
 
@@ -50,72 +66,54 @@ def deauth():
 #######################
 
 @app.route("/api/users/create", methods=["POST"])
-def usrcreate():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-
+@requires_username_and_password
+def user_create(username, password):
     if users.get(username) != None:
         return "Already exists", 409
 
     user = messages.User(username, password)
     users[username] = user
+    print(users)
     return "OK", 200
 
 @app.route("/api/users/delete", methods=["POST"])
-def usrdel():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
+@requires_auth
+def user_delete(username, token):
+    del users[username]
+    print(users)
+    return "OK", 200
 
-    if users.get(username) == None:
-        return "Doesn't exist", 404
-    
+'''BROKEN, WILL FIX LATER
+@app.route("/api/users/update_username", methods=["POST"])
+@requires_auth
+def user_update_username(username, token):
+    data = request.json
+    new_usrname = data.get("username")
+
+    user = users[username]
+    user.username = new_usrname
+
+    users[new_usrname] = user
     del users[username]
     return "OK", 200
 
-@app.route("/api/users/update_username", methods=["POST"])
-def usrnameupdate():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-
-    if users.get(username) == None:
-        return "Doesn't exist", 404
-
-    data = request.json
-    new_usrname = data.get("username")
-    
-    users[username].username = new_usrname
-    return "OK", 200
-
 @app.route("/api/users/update_password", methods=["POST"])
-def usrpassupdate():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 404
-
-    if users.get(username) is None:
-        return "Doesn't exist", 404
-
+@requires_auth
+def user_update_password(username, token):
     data = request.json
     passwd = data.get("password")
     
     users[username].password = passwd
     return "OK", 200
+'''
 
 ########################
 ### GUILD MANAGEMENT ###
 ########################
 
 @app.route("/api/guilds/create", methods=["POST"])
-def guildcreate():
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-
+@requires_auth
+def guildcreate(username, token):
     cid = utils.generate_id()
     guild = messages.Guild(cid)
     # Give that person owner privledges
@@ -125,14 +123,9 @@ def guildcreate():
     return cid, 200
 
 @app.route("/api/guilds/<guild_cid>/channels_list", methods=["GET"])
-def channel_list(guild_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def channel_list(username, token, guild_cid):
     guild = guilds[guild_cid]
-
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
@@ -141,14 +134,9 @@ def channel_list(guild_cid):
     }, 200
 
 @app.route("/api/guilds/<guild_cid>", methods=["DELETE"])
-def delguild(guild_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def guild_delete(username, token, guild_cid):
     guild: messages.Guild = guilds[guild_cid]
-    
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
@@ -164,12 +152,8 @@ def delguild(guild_cid):
 ################
 
 @app.route("/api/guilds/<guild_cid>/new_channel", methods=["POST"])
-def new_ch(guild_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def new_channel(username, token, guild_cid):
     guild: messages.Guild = guilds[guild_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
@@ -183,23 +167,17 @@ def new_ch(guild_cid):
     return channel.cid, 200
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["DELETE"])
-def del_ch(guild_cid, channel_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def del_channel(username, token, guild_cid, channel_cid):
     guild: messages.Guild = guilds[guild_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
     ch = guilds[guild_cid].channels[channel_cid]
-    
     if utils.check_permission(guild, channel_cid, "delete_channel"):
         return "No permission", 401
     
     guild.delete_channel(channel_cid)
-
     return "OK", 200
 
 ############
@@ -207,12 +185,8 @@ def del_ch(guild_cid, channel_cid):
 ############
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["GET"])
-def get_message_list(guild_cid, channel_cid):
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def get_message_list(username, token, guild_cid, channel_cid):
     guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
     if not utils.user_in_guild(guild, username):
@@ -223,7 +197,8 @@ def get_message_list(guild_cid, channel_cid):
     }, 200
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["POST"])
-def send_message(guild_cid, channel_cid):
+@requires_auth
+def send_message(username, token, guild_cid, channel_cid):
     data = request.json
     text = data.get("content")
 
@@ -244,22 +219,14 @@ def send_message(guild_cid, channel_cid):
 # This stuff is untested, I literally do not care, if it doesn't work I couldn't care less.
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["GET"])
-def get_msg(guild_cid, channel_cid, message_cid):
-    data = request.json
-
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def get_msg(username, token, guild_cid, channel_cid, message_cid):
     guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
-    
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
     
     m: messages.Message = ch.messages[message_cid]
-
     return {
         "author": m.author.cid,
         "content": m.content,
@@ -268,14 +235,8 @@ def get_msg(guild_cid, channel_cid, message_cid):
     }, 200
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["DELETE"])
-def del_msg(guild_cid, channel_cid, message_cid):
-    data = request.json
-
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
+@requires_auth
+def del_msg(username, token, guild_cid, channel_cid, message_cid):
     guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
     
@@ -287,15 +248,11 @@ def del_msg(guild_cid, channel_cid, message_cid):
 
 # Is PATCH a real method???? Too lazy to check, couldn't care less
 @app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["PATCH"])
-def edit_msg(guild_cid, channel_cid, message_cid):
+@requires_auth
+def edit_msg(username, token, guild_cid, channel_cid, message_cid):
     data = request.json
     text = data.get("content")
 
-    token = utils.get_request_token(request)
-    username = utils.get_username_by_token(token, users)
-    if token == None or username == None:
-        return "Nope!", 401
-    
     guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
     
