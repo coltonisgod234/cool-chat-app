@@ -193,7 +193,7 @@ def get_message_list(username, token, guild_cid, channel_cid):
         return "Not a member", 403
 
     return {
-        "messages": ch.messages.keys()
+        "messages": list(ch.messages.keys())
     }, 200
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>", methods=["POST"])
@@ -205,7 +205,7 @@ def send_message(username, token, guild_cid, channel_cid):
     token = utils.get_request_token(request)
     username = utils.get_username_by_token(token, users)
     
-    guild: messages.Guild = guilds[guild]
+    guild: messages.Guild = guilds[guild_cid]
     ch: messages.Channel = guilds[guild_cid].channels[channel_cid]
     if not utils.user_in_guild(guild, username):
         return "Not a member", 403
@@ -262,4 +262,5 @@ def edit_msg(username, token, guild_cid, channel_cid, message_cid):
     ch.edit_message(message_cid, text)
     return "OK", 200
 
-app.run(debug=True)
+if __name__ == "__main__":
+    app.run(debug=True, port=5100)
