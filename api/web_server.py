@@ -2,11 +2,11 @@ from flask import Flask, request, make_response, jsonify
 from functools import wraps
 import time
 
-from ..data.database import Database
-from ..data.repositories import UserRepository, GuildRepository, ChannelRepository, MessageRepository
-from ..service.auth_service import AuthService
-from ..service.chat_service import ChatService
-from ..service import utils
+from data.database import Database
+from data.repositories import UserRepository, GuildRepository, ChannelRepository, MessageRepository
+from service.auth_service import AuthService
+from service.chat_service import ChatService
+from service import utils
 
 # Initialize app
 app = Flask(__name__)

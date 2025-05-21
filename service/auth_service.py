@@ -1,4 +1,4 @@
-from ..data.repositories import UserRepository
+from data.repositories import UserRepository
 from . import utils
 
 class AuthService:

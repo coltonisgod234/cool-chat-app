@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, select
 from sqlalchemy.orm import relationship
-from ..data.database import Base, Database
-from ..service import utils
+from data.database import Base, Database
+from service import utils
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, DEBUG = utils.get_loglevels()
 

@@ -2,9 +2,9 @@
 Testing utilities for the chat application.
 These functions should ONLY be used in tests, never in production code.
 """
-from ..data.database import Database 
+from data.database import Database 
 from sqlalchemy.orm import Session
-from ..domain.models import User, Guild, Channel, Message
+from domain.models import User, Guild, Channel, Message
 
 class DatabaseCleaner:
     """Utility class for cleaning up test data in the database.

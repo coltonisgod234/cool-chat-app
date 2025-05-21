@@ -1,5 +1,5 @@
 import pytest
-from ..api.web_server import app, auth_service, chat_service, db
+from api.web_server import app, auth_service, chat_service, db
 
 # Import test utilities
 from .db_cleaner import DatabaseCleaner

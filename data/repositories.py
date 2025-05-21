@@ -1,8 +1,8 @@
 import json
 from sqlalchemy.orm import Session
 from .database import Database
-from ..domain.models import User, Guild, Channel, Message
-from ..service import utils
+from domain.models import User, Guild, Channel, Message
+from service import utils
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, DEBUG = utils.get_loglevels()
 

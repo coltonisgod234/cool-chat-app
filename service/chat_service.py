@@ -1,6 +1,6 @@
-from ..data.repositories import MessageRepository, ChannelRepository, GuildRepository, UserRepository
-from ..domain.models import InMemoryMessage, InMemoryChannel, InMemoryGuild
-from ..domain.permissions import create_admin_guild_permission, create_default_channel_permission
+from data.repositories import MessageRepository, ChannelRepository, GuildRepository, UserRepository
+from domain.models import InMemoryMessage, InMemoryChannel, InMemoryGuild
+from domain.permissions import create_admin_guild_permission, create_default_channel_permission
 from . import utils
 import time
 
