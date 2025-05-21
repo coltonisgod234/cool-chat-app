@@ -1,20 +1,32 @@
 import pytest
-from web_server import app, users, guilds
-from messages import User
+from ..api.web_server import app, auth_service, chat_service, db
+
+# Import test utilities
+from .db_cleaner import DatabaseCleaner
+
+# Configure test environment
+app.config['TESTING'] = True
+
+# Initialize test database cleaner
+db_cleaner = DatabaseCleaner(db)
 
 @pytest.fixture
 def client():
-    app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
 
 @pytest.fixture(autouse=True)
 def reset_state():
-    # Reset state between tests
-    users.clear()
+    # Reset in-memory state
+    auth_service.users.clear()
+    chat_service.guilds.clear()
+    chat_service.channels.clear()
+    
+    # Reset database state using the cleaner
+    db_cleaner.reset_database()
+    
     # Create default user
-    users["colton"] = User("colton", "abc123")
-    guilds.clear()
+    auth_service.initialize_users()
 
 @pytest.fixture
 def test_user(client):

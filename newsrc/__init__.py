@@ -1,0 +1,1 @@
+"""Cool Chat App - A chat application with guilds, channels, and messages"""

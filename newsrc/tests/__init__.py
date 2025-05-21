@@ -1,0 +1,1 @@
+"""Test cases for the Cool Chat App""" 

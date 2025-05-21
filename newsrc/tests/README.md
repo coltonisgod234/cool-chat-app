@@ -1,27 +1,50 @@
-# API Testing Guide
+# Testing the Chat Application
 
-This directory contains automated tests for the chat app API endpoints.
+This directory contains tests for the chat application. The tests are written using pytest and are designed to test the API endpoints and application functionality.
+
+## Testing Approach
+
+The tests follow these principles:
+
+1. **Test Isolation**: Each test runs in isolation with a fresh application state. The database is cleared between tests to ensure there are no unexpected interactions.
+
+2. **Minimal Dependencies**: Tests interact directly with the application's API rather than mocking dependencies.
+
+3. **Fixtures**: Common setup code is extracted into fixtures to avoid repetition.
+
+## Database Management
+
+For test isolation, we use a `DatabaseCleaner` utility that safely removes test data between runs. This cleaner is specifically designed for testing and should never be used in production code.
+
+The cleaner is implemented in `db_cleaner.py` and:
+
+- Clears messages, channels, guilds, and non-default users between tests
+- Preserves the default user (colton) for consistency
+- Uses proper session management to avoid SQLAlchemy issues
+- Handles entity relationships in the correct order
 
 ## Running Tests
 
-To run all tests:
+To run the tests, use:
 
 ```bash
-cd newsrc
-python -m pytest tests/ -v
+python -m pytest newsrc/tests
 ```
 
-To run a specific test file:
+For more verbose output:
 
 ```bash
-python -m pytest tests/test_endpoints.py -v
+python -m pytest newsrc/tests -v
 ```
 
-To run a specific test function:
+## Adding New Tests
 
-```bash
-python -m pytest tests/test_endpoints.py::test_user_authentication -v
-```
+When adding new tests:
+
+1. Use the existing fixtures wherever possible
+2. Ensure your test resets state properly by using the `reset_state` fixture
+3. Follow the pattern of creating entities, performing actions, and then asserting results
+4. Keep tests focused on testing one specific feature or behavior
 
 ## Test Coverage
 
