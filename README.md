@@ -61,5 +61,5 @@ python -m newsrc
 To run tests, use:
 
 ```bash
-pytest newsrc/tests
+pytest newsrc/tests -v
 ``` 
