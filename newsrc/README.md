@@ -26,9 +26,12 @@ newsrc/
 │   └── utils.py      # Utility functions
 ├── tests/            # Test files
 │   ├── __init__.py
-│   └── test_endpoints.py
+│   ├── test_endpoints.py # API endpoint tests
+│   ├── db_cleaner.py    # Database cleanup utilities
+│   └── README.md     # Testing documentation
 ├── __init__.py       # Package initialization
-└── __main__.py       # Application entry point
+├── __main__.py       # Application entry point
+└── new_web_server.db # SQLite database file
 ```
 
 ## Architecture
