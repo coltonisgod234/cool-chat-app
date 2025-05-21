@@ -1,8 +1,13 @@
 ssl/
-data/
 users/
 sessions.csv
 users.csv
 __pycache__/
 
 venv/
+
+
+# By Kevin
+*.csv
+*.db
+*.specstory/
