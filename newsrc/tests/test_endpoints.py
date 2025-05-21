@@ -62,6 +62,7 @@ def test_user_authentication(client):
     username = "cruduser"
     password = "crudpass"
     
+    ############################
     # Test user creation
     resp = client.post('/api/users/create', json={
         "username": username,
@@ -69,6 +70,7 @@ def test_user_authentication(client):
     })
     assert resp.status_code == 200, "User creation should succeed"
     
+    ############################
     # Test login
     resp = client.post('/api/auth/login', json={
         "username": username, 
@@ -77,6 +79,7 @@ def test_user_authentication(client):
     assert resp.status_code == 200, "Login with correct password should succeed"
     token = resp.data.decode()
     
+    ############################
     # Test logout
     resp = client.post('/api/auth/logout', 
         headers={'Authorization': f'Bearer {token}'}
@@ -87,6 +90,7 @@ def test_guild_operations(client, authenticated_user):
     """Test guild creation and listing channels"""
     _, token = authenticated_user
     
+    ############################
     # Create guild
     resp = client.post('/api/guilds/create',
         headers={'Authorization': f'Bearer {token}'}
@@ -94,6 +98,7 @@ def test_guild_operations(client, authenticated_user):
     assert resp.status_code == 200, "Guild creation should succeed"
     guild_id = resp.data.decode()
     
+    ############################
     # Check empty channels list
     resp = client.get(f'/api/guilds/{guild_id}/channels_list',
         headers={'Authorization': f'Bearer {token}'}
@@ -106,13 +111,15 @@ def test_channel_operations(client, authenticated_user, test_guild):
     _, token = authenticated_user
     guild_id = test_guild
     
+    ############################
     # Create channel
     resp = client.post(f'/api/guilds/{guild_id}/new_channel',
         headers={'Authorization': f'Bearer {token}'},
         json={"name": "general"}
     )
     assert resp.status_code == 200, "Channel creation should succeed"
-    
+
+    ############################
     # List channels
     resp = client.get(f'/api/guilds/{guild_id}/channels_list',
         headers={'Authorization': f'Bearer {token}'}
@@ -126,6 +133,7 @@ def test_message_operations(client, authenticated_user, test_guild, test_channel
     guild_id = test_guild
     channel_id = test_channel
     
+    ############################
     # Send message
     resp = client.post(f'/api/guilds/{guild_id}/{channel_id}',
         headers={'Authorization': f'Bearer {token}'},
@@ -133,9 +141,51 @@ def test_message_operations(client, authenticated_user, test_guild, test_channel
     )
     assert resp.status_code == 200, "Sending message should succeed"
     
+    ############################
     # Get messages
     resp = client.get(f'/api/guilds/{guild_id}/{channel_id}',
         headers={'Authorization': f'Bearer {token}'}
     )
+
+    msgs = resp.json["messages"]
+    try: msg = msgs[0]
+    except IndexError: assert False
+
     assert resp.status_code == 200, "Getting messages should succeed"
-    assert len(resp.json["messages"]) == 1, "Channel should have one message" 
+    assert len(msgs) == 1, "Channel should have one message" 
+
+    ############################
+    # Get message info
+    resp = client.get(f'/api/guilds/{guild_id}/{channel_id}/{msg}',
+        headers={'Authorization': f'Bearer {token}'}
+    )
+
+    assert resp.status_code == 200, "Message info should succeed"
+    print("Info OK.")
+
+    ############################
+    # Edit message
+    resp = client.patch(f'/api/guilds/{guild_id}/{channel_id}/{msg}',
+        headers={'Authorization': f'Bearer {token}'},
+        json={"content": "Goodbye World!"}
+    )
+    assert resp.status_code == 200, "Message edit should succeed"
+    print("Edit OK.")
+
+    ############################
+    # Verify
+    resp = client.get(f'/api/guilds/{guild_id}/{channel_id}/{msg}',
+        headers={'Authorization': f'Bearer {token}'}
+    )
+
+    assert resp.status_code == 200, "Message info (edit verification) should succeed"
+    print("Verif OK.")
+
+    ############################
+    # Delete message
+    resp = client.delete(f'/api/guilds/{guild_id}/{channel_id}/{msg}',
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    
+    assert resp.status_code == 200, "Message delete should succeed"
+    print("Delete message OK.")

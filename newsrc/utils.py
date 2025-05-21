@@ -6,14 +6,9 @@ SHOW_VERBOSE = True
 PREVIOUS_LOOKBACK = 2
 
 def get_username_by_token(token, users):
-    try:
-        data = [username for username, object in users.items() if object.token == token][0]
-        print(token, users, users.items(), data)
-        return data
-    except IndexError as e:
-        print("Cant index into users dict: IndexError| ", e)
-        print(token, users, users.items())
-        return None
+    data = users.find_one({"token": token})
+    print(token, users, users.items(), data)
+    return data
 
 def get_request_token(request):
     headers = request.headers

@@ -3,6 +3,7 @@ from flask import Flask, request, make_response
 import messages
 import permissions
 import utils
+import pymongo
 
 import time
 
@@ -10,10 +11,10 @@ app = Flask(__name__)
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, VERBOSEX = utils.get_loglevels()
 
-users = {
-    "colton": messages.User("colton", "abc123")
-}
-guilds = {}
+dbclient = pymongo.MongoClient("mongodb://localhost:27017/")
+db = dbclient["chat-app"]
+users = db["users"]
+guilds = db["guilds"]
 
 from functools import wraps
 
@@ -22,7 +23,6 @@ def requires_auth(func):
     def wrapper(*args, **kwargs):
         token = utils.get_request_token(request)
         username = utils.get_username_by_token(token, users)
-
         if not username or not token:
             return "Bad token", 401
 
@@ -46,7 +46,7 @@ def requires_username_and_password(func):
 @app.route("/api/auth/login", methods=["POST"])
 @requires_username_and_password
 def auth(username, password):
-    user = users.get(username)
+    user = users.find_one({"_id": ""})
 
     user.authenticate(password)
     if not user.token:
@@ -215,8 +215,6 @@ def send_message(username, token, guild_cid, channel_cid):
     ch.add_message(m)
 
     return "OK", 200
-
-# This stuff is untested, I literally do not care, if it doesn't work I couldn't care less.
 
 @app.route("/api/guilds/<guild_cid>/<channel_cid>/<message_cid>", methods=["GET"])
 @requires_auth
