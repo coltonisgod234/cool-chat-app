@@ -1,14 +1,49 @@
 import pytest
-from api.web_server import app, auth_service, chat_service, db
+import os
+from flask import Flask
+
+# Import DB factory and configuration
+from data.db_factory import DatabaseFactory, DBType
+from tests.db_config import get_test_db_type, get_mongo_config, get_sql_config
 
 # Import test utilities
 from .db_cleaner import DatabaseCleaner
+from .mongo_db_cleaner import MongoDBCleaner
+
+# Initialize database and repositories based on configuration
+db_type = get_test_db_type()
+db_config = get_mongo_config() if db_type == DBType.MONGO else get_sql_config()
+db, user_repo, guild_repo, channel_repo, message_repo = DatabaseFactory.create_database(db_type, **db_config)
+
+# Initialize services for tests
+from service.auth_service import AuthService
+from service.chat_service import ChatService
+auth_service = AuthService(user_repo)
+chat_service = ChatService(message_repo, channel_repo, guild_repo, user_repo)
+
+# Initialize test database cleaner
+db_cleaner = DatabaseCleaner(db) if db_type == DBType.SQL else MongoDBCleaner(db)
+
+# Patch the environment for the web server
+os.environ["DB_TYPE"] = "mongo" if db_type == DBType.MONGO else "sql"
+if db_type == DBType.MONGO:
+    os.environ["MONGO_DB_NAME"] = db_config["db_name"]
+
+# Import web server *after* setting up the environment and database
+from api.web_server import app
+
+# Patch the app's services to use our test services
+import api.web_server
+api.web_server.auth_service = auth_service
+api.web_server.chat_service = chat_service
+api.web_server.user_repo = user_repo
+api.web_server.guild_repo = guild_repo
+api.web_server.channel_repo = channel_repo
+api.web_server.message_repo = message_repo
+api.web_server.db = db
 
 # Configure test environment
 app.config['TESTING'] = True
-
-# Initialize test database cleaner
-db_cleaner = DatabaseCleaner(db)
 
 @pytest.fixture
 def client():
@@ -73,6 +108,9 @@ def test_user_authentication(client):
     """Test user creation, login and logout"""
     username = "cruduser"
     password = "crudpass"
+    
+    # Reset the auth_service in-memory cache to ensure clean state
+    auth_service.users = {}
     
     # Test user creation
     resp = client.post('/api/users/create', json={

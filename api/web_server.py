@@ -1,9 +1,9 @@
 from flask import Flask, request, make_response, jsonify
 from functools import wraps
 import time
+import os
 
-from data.database import Database
-from data.repositories import UserRepository, GuildRepository, ChannelRepository, MessageRepository
+from data.db_factory import DatabaseFactory, DBType
 from service.auth_service import AuthService
 from service.chat_service import ChatService
 from service import utils
@@ -11,15 +11,25 @@ from service import utils
 # Initialize app
 app = Flask(__name__)
 
-# Initialize database
-db = Database()
-db.create_tables()
+# Determine database type from environment
+db_type_str = os.environ.get("DB_TYPE", "sql").lower()
+db_type = DBType.MONGO if db_type_str == "mongo" else DBType.SQL
 
-# Initialize repositories
-user_repo = UserRepository(db)
-guild_repo = GuildRepository(db)
-channel_repo = ChannelRepository(db)
-message_repo = MessageRepository(db)
+# Set up MongoDB configuration if using MongoDB
+mongo_config = {
+    "connection_uri": os.environ.get("MONGO_URI", "mongodb://localhost:27017/"),
+    "db_name": os.environ.get("MONGO_DB_NAME", "cool_chat_app")
+}
+
+# Set up SQL configuration if using SQL
+sql_config = {
+    "db_url": os.environ.get("SQL_DB_URL", "sqlite:///new_web_server.db"),
+    "echo": os.environ.get("SQL_ECHO", "False").lower() == "true"
+}
+
+# Initialize database and repositories based on configuration
+db_config = mongo_config if db_type == DBType.MONGO else sql_config
+db, user_repo, guild_repo, channel_repo, message_repo = DatabaseFactory.create_database(db_type, **db_config)
 
 # Initialize services
 auth_service = AuthService(user_repo)
