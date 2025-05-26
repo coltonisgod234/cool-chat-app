@@ -14,39 +14,46 @@ class AuthService:
         # This would typically load users from the database
         # For simplicity, we'll initialize with a default user
         if "colton" not in self.users:
-            # Check if user exists in DB
             user = self.user_repo.get_user_by_username("colton")
             if not user:
-                # Create default user if not exists
-                user = self.user_repo.create_user("colton", None)
-                
-            # Add to cache
+                default_password_hash = utils.hash_password("defaultpass")
+                user = self.user_repo.create_user("colton", default_password_hash)
             self.users["colton"] = user
             
     def login(self, username: str, password: str):
         """Authenticate a user and return a token if successful"""
+        if not username or not password:
+            utils.log(utils.WARN, f"Login attempt with empty username or password")
+            return None
+            
         # Get user
         user = self.users.get(username)
         if not user:
             user = self.user_repo.get_user_by_username(username)
             if not user:
+                utils.log(utils.WARN, f"Login attempt for non-existent user: {username}")
                 return None
-                
-            # Add to cache
             self.users[username] = user
             
-        # In a real app, we'd verify the password
-        # For now, just generate a token
-        token = utils.generate_id()
+        if not user.password_hash:
+            utils.log(utils.ERROR, f"User {username} has no password hash set")
+            return None
+            
+        if not utils.verify_password(password, user.password_hash):
+            utils.log(utils.WARN, f"Invalid password for user: {username}")
+            return None
+            
+        token = utils.generate_secure_token()
         
         # Always update token through repository to avoid session issues
         success = self.user_repo.update_user_token(user.cid, token)
         if not success:
+            utils.log(utils.ERROR, f"Failed to update token for user: {username}")
             return None
             
-        # Also update in-memory cache
         user.token = token
         
+        utils.log(utils.INFO, f"Successful login for user: {username}")
         return token
         
     def logout(self, username: str):
@@ -56,18 +63,15 @@ class AuthService:
             user = self.user_repo.get_user_by_username(username)
             if not user:
                 return False
-                
-            # Add to cache
             self.users[username] = user
             
-        # Update token through repository
         success = self.user_repo.update_user_token(user.cid, None)
         if not success:
             return False
             
-        # Also update in-memory cache
         user.token = None
         
+        utils.log(utils.INFO, f"User logged out: {username}")
         return True
         
     def validate_token(self, token: str):
@@ -91,6 +95,10 @@ class AuthService:
         
     def create_user(self, username: str, password: str):
         """Create a new user"""
+        if not username or not password:
+            utils.log(utils.WARN, f"Attempt to create user with empty username or password")
+            return False
+            
         # Check if user already exists
         if username in self.users:
             return False
@@ -101,15 +109,57 @@ class AuthService:
             self.users[username] = user
             return False
             
+        # Hash password
+        try:
+            password_hash = utils.hash_password(password)
+        except ValueError as e:
+            utils.log(utils.ERROR, f"Password hashing failed: {e}")
+            return False
+            
         # Create user
-        # In a real app, we'd hash the password
-        user = self.user_repo.create_user(username, None)
+        user = self.user_repo.create_user(username, password_hash)
         if not user:
             return False
             
         # Add to cache
         self.users[username] = user
         
+        utils.log(utils.INFO, f"Created new user: {username}")
+        return True
+        
+    def change_password(self, username: str, old_password: str, new_password: str):
+        """Change a user's password"""
+        if not username or not old_password or not new_password:
+            return False
+            
+        user = self.users.get(username)
+        if not user:
+            user = self.user_repo.get_user_by_username(username)
+            if not user:
+                return False
+            self.users[username] = user
+            
+        if not user.password_hash or not utils.verify_password(old_password, user.password_hash):
+            utils.log(utils.WARN, f"Invalid old password for user: {username}")
+            return False
+            
+        try:
+            new_password_hash = utils.hash_password(new_password)
+        except ValueError as e:
+            utils.log(utils.ERROR, f"Password hashing failed: {e}")
+            return False
+            
+        success = self.user_repo.update_user_password(user.cid, new_password_hash)
+        if not success:
+            return False
+            
+        user.password_hash = new_password_hash
+        
+        # Invalidate token to force re-login
+        self.user_repo.update_user_token(user.cid, None)
+        user.token = None
+        
+        utils.log(utils.INFO, f"Password changed for user: {username}")
         return True
         
     def delete_user(self, username: str):
@@ -120,15 +170,14 @@ class AuthService:
             if not user:
                 return False
                 
-        # Delete from DB
         success = self.user_repo.delete_user(user.cid)
         if not success:
             return False
             
-        # Remove from cache
         if username in self.users:
             del self.users[username]
             
+        utils.log(utils.INFO, f"Deleted user: {username}")
         return True
         
     def get_user_by_username(self, username: str):
@@ -137,7 +186,6 @@ class AuthService:
         if not user:
             user = self.user_repo.get_user_by_username(username)
             if user:
-                # Update cache
                 self.users[username] = user
                 
         return user

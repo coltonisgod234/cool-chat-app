@@ -1,6 +1,4 @@
 import json
-from bson import ObjectId
-from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError
 from .mongo_database import MongoDatabase
 from domain.models import User, Guild, Channel, Message
@@ -19,7 +17,12 @@ class UserMongoRepository(BaseMongoRepository):
             user_data = collection.find_one({"cid": cid})
             if not user_data:
                 return None
-            return User(cid=user_data["cid"], username=user_data["username"], token=user_data.get("token"))
+            user = User()
+            user.cid = user_data["cid"]
+            user.username = user_data["username"]
+            user.token = user_data.get("token")
+            user.password_hash = user_data.get("password_hash")
+            return user
         except Exception as e:
             utils.log(ERROR, f"Error getting user by cid: {e}")
             return None
@@ -30,7 +33,12 @@ class UserMongoRepository(BaseMongoRepository):
             user_data = collection.find_one({"username": username})
             if not user_data:
                 return None
-            return User(cid=user_data["cid"], username=user_data["username"], token=user_data.get("token"))
+            user = User()
+            user.cid = user_data["cid"]
+            user.username = user_data["username"]
+            user.token = user_data.get("token")
+            user.password_hash = user_data.get("password_hash")
+            return user
         except Exception as e:
             utils.log(ERROR, f"Error getting user by username: {e}")
             return None
@@ -43,12 +51,17 @@ class UserMongoRepository(BaseMongoRepository):
             user_data = collection.find_one({"token": token})
             if not user_data:
                 return None
-            return User(cid=user_data["cid"], username=user_data["username"], token=user_data.get("token"))
+            user = User()
+            user.cid = user_data["cid"]
+            user.username = user_data["username"]
+            user.token = user_data.get("token")
+            user.password_hash = user_data.get("password_hash")
+            return user
         except Exception as e:
             utils.log(ERROR, f"Error getting user by token: {e}")
             return None
 
-    def create_user(self, username: str, token: str | None = None) -> User | None:
+    def create_user(self, username: str, password_hash: str | None = None, token: str | None = None) -> User | None:
         try:
             # Check if user already exists first to match SQL behavior
             existing_user = self.get_user_by_username(username)
@@ -60,6 +73,7 @@ class UserMongoRepository(BaseMongoRepository):
             new_user = {
                 "cid": cid,
                 "username": username,
+                "password_hash": password_hash,
                 "token": token
             }
             collection.insert_one(new_user)
@@ -82,6 +96,18 @@ class UserMongoRepository(BaseMongoRepository):
             return result.modified_count > 0
         except Exception as e:
             utils.log(ERROR, f"Error updating user token: {e}")
+            return False
+
+    def update_user_password(self, cid: str, password_hash: str) -> bool:
+        try:
+            collection = self._db.get_user_collection()
+            result = collection.update_one(
+                {"cid": cid},
+                {"$set": {"password_hash": password_hash}}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            utils.log(ERROR, f"Error updating user password: {e}")
             return False
 
     def delete_user(self, cid: str) -> bool:

@@ -47,11 +47,11 @@ class UserRepository(BaseRepository):
         finally:
             self._close_session(session)
 
-    def create_user(self, username: str, token: str | None = None) -> User | None:
+    def create_user(self, username: str, password_hash: str | None = None, token: str | None = None) -> User | None:
         session = self._get_session()
         try:
             cid = utils.generate_id()
-            new_user = User(cid=cid, username=username, token=token)
+            new_user = User(cid=cid, username=username, password_hash=password_hash, token=token)
             session.add(new_user)
             self._commit_session(session)
             return self.get_user_by_username(username)  # Return a fresh copy from DB
@@ -85,6 +85,20 @@ class UserRepository(BaseRepository):
             return False
         except Exception as e:
             utils.log(ERROR, f"Error deleting user: {e}")
+            session.rollback()
+            return False
+
+    def update_user_password(self, cid: str, password_hash: str) -> bool:
+        session = self._get_session()
+        try:
+            user = session.query(User).filter(User.cid == cid).first()
+            if user:
+                user.password_hash = password_hash
+                self._commit_session(session)
+                return True
+            return False
+        except Exception as e:
+            utils.log(ERROR, f"Error updating user password: {e}")
             session.rollback()
             return False
 

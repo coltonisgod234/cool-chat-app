@@ -188,4 +188,39 @@ def test_message_operations(client, authenticated_user, test_guild, test_channel
         headers={'Authorization': f'Bearer {token}'}
     )
     assert resp.status_code == 200, "Getting messages should succeed"
-    assert len(resp.json["messages"]) == 1, "Channel should have one message" 
+    assert len(resp.json["messages"]) == 1, "Channel should have one message"
+
+def test_password_change(client, test_user):
+    """Test password change functionality"""
+    username, old_password = test_user
+    new_password = "newpass123"
+    
+    resp = client.post('/api/auth/login', json={
+        "username": username,
+        "password": old_password
+    })
+    assert resp.status_code == 200, "Login with original password should succeed"
+    token = resp.data.decode()
+    
+    resp = client.post('/api/users/change_password',
+        headers={'Authorization': f'Bearer {token}'},
+        json={
+            "old_password": old_password,
+            "new_password": new_password
+        }
+    )
+    assert resp.status_code == 200, "Password change should succeed"
+    
+    # Try login with old password (should fail)
+    resp = client.post('/api/auth/login', json={
+        "username": username,
+        "password": old_password
+    })
+    assert resp.status_code == 400, "Login with old password should fail"
+    
+    # Login with new password
+    resp = client.post('/api/auth/login', json={
+        "username": username,
+        "password": new_password
+    })
+    assert resp.status_code == 200, "Login with new password should succeed" 

@@ -101,6 +101,21 @@ def user_delete(username, token):
     auth_service.delete_user(username)
     return "OK", 200
 
+@app.route("/api/users/change_password", methods=["POST"])
+@requires_auth
+def user_change_password(username, token):
+    data = request.json
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+    
+    if not old_password or not new_password:
+        return "Missing old_password or new_password", 400
+    
+    if auth_service.change_password(username, old_password, new_password):
+        return "OK", 200
+    else:
+        return "Invalid old password", 400
+
 ########################
 ### GUILD MANAGEMENT ###
 ########################

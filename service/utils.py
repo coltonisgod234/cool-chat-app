@@ -1,6 +1,8 @@
 import uuid
 import inspect
 import time
+import secrets
+import bcrypt
 from typing import Dict, List, Optional, Any
 import json
 
@@ -38,6 +40,32 @@ def generate_id():
     x = str(uuid.uuid4())
     log(INFO, f"Generated a new CID, {x} for function {prev_running_func(PREVIOUS_LOOKBACK)}")
     return x
+
+def generate_secure_token():
+    """Generate a cryptographically secure token for authentication"""
+    token = secrets.token_urlsafe(32)
+    log(INFO, f"Generated secure token for function {prev_running_func(PREVIOUS_LOOKBACK)}")
+    return token
+
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    if not password:
+        raise ValueError("Password cannot be empty")
+    
+    # Generate salt and hash password
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify a password against its bcrypt hash"""
+    if not password or not stored_hash:
+        return False
+    
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+    except (ValueError, TypeError):
+        return False
 
 def get_timestamp():
     """Get the current timestamp as a string"""

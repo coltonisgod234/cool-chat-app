@@ -12,12 +12,13 @@ class User(Base):
     cid = Column(String, primary_key=True)
     token = Column(String, nullable=True)
     username = Column(String)
-    # No password for now, screw you
+    password_hash = Column(String, nullable=True)
 
     def copy_user_data(self, user_data_source):
         self.cid = user_data_source.cid
         self.token = user_data_source.token
         self.username = user_data_source.username
+        self.password_hash = user_data_source.password_hash
     
     def __repr__(self):
         return f'User(cid={self.cid}, username={self.username})'
