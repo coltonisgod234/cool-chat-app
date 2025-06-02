@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, select
 from sqlalchemy.orm import relationship
 from data.database import Base, Database
 from service import utils
+import bcrypt
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, DEBUG = utils.get_loglevels()
 
@@ -12,7 +13,7 @@ class User(Base):
     cid = Column(String, primary_key=True)
     token = Column(String, nullable=True)
     username = Column(String)
-    # No password for now, screw you
+    password_hash = Column(String)
 
     def copy_user_data(self, user_data_source):
         self.cid = user_data_source.cid

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from .database import Database
 from domain.models import User, Guild, Channel, Message
 from service import utils
+import bcrypt
 
 INFO, WARN, ERROR, CRITICAL, VERBOSE, DEBUG = utils.get_loglevels()
 
@@ -47,11 +48,13 @@ class UserRepository(BaseRepository):
         finally:
             self._close_session(session)
 
-    def create_user(self, username: str, token: str | None = None) -> User | None:
+    def create_user(self, username: str, password: str, token: str | None = None) -> User | None:
         session = self._get_session()
+        print(password)
         try:
             cid = utils.generate_id()
-            new_user = User(cid=cid, username=username, token=token)
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            new_user = User(cid=cid, username=username, token=token, password_hash=hashed_password)
             session.add(new_user)
             self._commit_session(session)
             return self.get_user_by_username(username)  # Return a fresh copy from DB

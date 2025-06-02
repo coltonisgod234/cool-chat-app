@@ -80,8 +80,9 @@ def deauth(username, token):
 @app.route("/api/users/create", methods=["POST"])
 @requires_username_and_password
 def user_create(username, password):
-    if not auth_service.create_user(username, password):
-        return "Already exists", 409
+    user = auth_service.create_user(username, password)
+    if not user:
+        return f"Already exists {user}", 409
 
     return "OK", 200
 
@@ -90,6 +91,11 @@ def user_create(username, password):
 def user_delete(username, token):
     auth_service.delete_user(username)
     return "OK", 200
+
+@app.route("/api/users/setpassword", methods=["POST"])
+@requires_auth
+def user_set_password(username, toen):
+    auth_service
 
 ########################
 ### GUILD MANAGEMENT ###

@@ -1,0 +1,12 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "Database thing aaa",
+            "group": "i dont know",
+            "database": "${workspaceFolder:chat-app}/new_web_server.db"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}

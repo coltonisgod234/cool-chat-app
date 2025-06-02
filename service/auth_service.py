@@ -1,5 +1,6 @@
 from data.repositories import UserRepository
 from . import utils
+from bcrypt import checkpw, hashpw, gensalt
 
 class AuthService:
     def __init__(self, user_repo: UserRepository):
@@ -8,6 +9,9 @@ class AuthService:
         # In-memory user cache for faster lookups
         # username -> User
         self.users = {}
+
+    def verify_password(self, password, hash):
+        return checkpw(password.encode('utf-8'), hash)
         
     def initialize_users(self):
         """Load users from the database into memory cache"""
@@ -18,7 +22,7 @@ class AuthService:
             user = self.user_repo.get_user_by_username("colton")
             if not user:
                 # Create default user if not exists
-                user = self.user_repo.create_user("colton", None)
+                user = self.user_repo.create_user("colton", "abc123")
                 
             # Add to cache
             self.users["colton"] = user
@@ -30,10 +34,13 @@ class AuthService:
         if not user:
             user = self.user_repo.get_user_by_username(username)
             if not user:
-                return None
+                return
                 
             # Add to cache
             self.users[username] = user
+        
+        if not self.verify_password(password, user.password_hash):
+            return
             
         # In a real app, we'd verify the password
         # For now, just generate a token
@@ -69,7 +76,19 @@ class AuthService:
         user.token = None
         
         return True
+    
+    def change_password(self, username: str, password: str):
+        # Get user
+        user = self.users.get(username)
+        if not user:
+            user = self.user_repo.get_user_by_username(username)
+            if not user:
+                return
+                
+            # Add to cache
+            self.users[username] = user
         
+        user.password_hash = hashpw(password, gensalt())
     def validate_token(self, token: str):
         """Validate a token and return the username if valid"""
         if not token:
@@ -103,7 +122,7 @@ class AuthService:
             
         # Create user
         # In a real app, we'd hash the password
-        user = self.user_repo.create_user(username, None)
+        user = self.user_repo.create_user(username, password)
         if not user:
             return False
             
